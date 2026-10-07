@@ -44,6 +44,12 @@
   .vhead b{font-size:14px}
   .vhead a{color:var(--acc2);font-size:12px}
   iframe{width:100%;height:66vh;border:0;background:#fff;display:block}
+  .vswitch{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;background:#f7fafd}
+  .vbtn{padding:6px 12px;border:1px solid var(--line);background:#fff;border-radius:7px;cursor:pointer;font-size:12.5px}
+  .vbtn.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
+  .vbtn.pl{border-color:#cfe0ef}
+  .vbtn[disabled]{opacity:.45;cursor:default}
+  .vlabel{color:var(--mut);font-size:12px;margin-right:4px}
   .empty{padding:34px 16px;text-align:center;color:var(--mut)}
   .note{padding:10px 12px;font-size:12.5px;color:var(--mut);border-top:1px solid var(--line);background:#fafcfe}
   .note b{color:var(--ink)}
@@ -54,7 +60,7 @@
 <body>
 <header>
   <h1>Ведомость объёмов работ по паркету — «Дворец»</h1>
-  <p>Воссоздаваемый и восстанавливаемый паркет. Клик по строке открывает вырезку нужного участка листа (мини-PDF).</p>
+  <p>Воссоздаваемый и восстанавливаемый паркет. Клик по строке открывает вырезку листа: состав слоёв (экспликация) и маркировочный план полов.</p>
 </header>
 <div class="wrap">
   <div class="tabs" id="tabs"></div>
@@ -84,8 +90,14 @@
         <b id="vtitle">Выберите строку в таблице</b>
         <a id="vopen" href="#" target="_blank" rel="noopener" hidden>открыть в новой вкладке ↗</a>
       </div>
+      <div class="vswitch" id="vswitch">
+        <span class="vlabel">Что показать:</span>
+        <button class="vbtn on" id="vCompose" disabled>Состав слоёв (экспликация)</button>
+        <button class="vbtn pl" id="vPlan" disabled>План полов</button>
+        <span id="vPlanPages"></span>
+      </div>
       <iframe id="vframe" title="Просмотр участка"></iframe>
-      <div class="note" id="vnote">Слева — ведомость, справа — участок листа с номерами помещений, маркой пола, составом слоёв и площадью.</div>
+      <div class="note" id="vnote">Слева — ведомость. Справа переключайте: «Состав слоёв» — таблица с пирогом и площадью, «План полов» — маркировочный план с номерами помещений и марками полов.</div>
     </div>
   </div>
   <footer id="foot"></footer>
@@ -97,17 +109,19 @@ const COLS = {
     ["area","Площадь, м²","num"],["pattern","Рисунок","l"],
     ["fanera","Фанера, мм",""],["dob","Добор В×Ш×шаг, мм",""],["lag","Лага В×Ш×шаг, мм",""],
     ["kera","Керамзит, мм","num"],["peno","Пеностекло, мм","num"],
-    ["mv1","Минвата 1, мм","num"],["mv2","Минвата 2, мм","num"],["firebio","Огнебиозащита",""]
+    ["mv1","Минвата 1, мм","num"],["mv2","Минвата 2, мм","num"],["firebio","Огнебиозащита",""],
+    ["planinfo","План полов",""]
   ],
   fifth: [
-    ["mark","Тип пола",""],["pages","Стр. документа",""],["rooms","Помещения","l"],
+    ["mark","Тип пола",""],["pages","Стр. документа (план + экспликация)",""],["rooms","Помещения","l"],
     ["area","Площадь, м²","num"],["pattern","Рисунок","l"],
     ["fanera","Фанера, мм",""],["dob","Добор В×Ш×шаг, мм",""],["lag","Лага В×Ш×шаг, мм",""],
     ["kera","Керамзит, мм","num"],["peno","Пеностекло, мм","num"],
-    ["mv1","Минвата 1, мм","num"],["mv2","Минвата 2, мм","num"],["firebio","Огнебиозащита",""]
+    ["mv1","Минвата 1, мм","num"],["mv2","Минвата 2, мм","num"],["firebio","Огнебиозащита",""],
+    ["planinfo","План полов",""]
   ]
 };
-let DATA=null, mode="full", rows=[], filtered=[], sortKey="mark", sel=null;
+let DATA=null, mode="full", rows=[], filtered=[], sortKey="mark", sel=null, view="compose", planPage=0;
 
 const fmt = v => (v===null||v===undefined||v==="") ? "—" : (Array.isArray(v) ? v.map(x=>x===null?"—":x).join(" × ") : v);
 
@@ -118,9 +132,21 @@ function boot(d){
     '<div class="tab" data-m="fifth">«Полы 5 этаж.pdf» · '+d.fifth.types+' типов · '+nf(d.fifth.area)+' м²</div>';
   document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>setMode(t.dataset.m));
   document.getElementById("foot").textContent =
-    "Источники: тома АР2 (листы «Общая экспликация полов») и документ «Полы 5 этаж.pdf»; рисунок паркета — тома РР.АИ. "+
-    "Учтены только слои выше существующих конструкций, плит перекрытий и стяжек.";
-  setMode("full");
+    "Источники: тома АР2 (листы «Общая экспликация полов» и маркировочные планы) и документ «Полы 5 этаж.pdf»; "+
+    "рисунок паркета — тома РР.АИ. Учтены только слои выше существующих конструкций, плит перекрытий и стяжек. "+
+    "Прямая ссылка на тип: ?mode=full&t=5.11&view=plan";
+  const qs=new URLSearchParams(location.search);
+  setMode(qs.get("mode")==="fifth" ? "fifth" : "full");
+  const t=qs.get("t");
+  if(t){
+    document.getElementById("q").value=t;
+    apply();
+    const idx=filtered.findIndex(r=>String(r.mark)===t);
+    if(idx>=0){
+      show(idx);
+      if(qs.get("view")==="plan") setView("plan");
+    }
+  }
 }
 const nf = n => (n||0).toLocaleString("ru-RU",{maximumFractionDigits:2});
 
@@ -175,6 +201,7 @@ function render(){
       let v=r[c[0]];
       if(c[0]==="pages") v=(r.pages||[r.page]).join(", ");
       if(c[0]==="firebio") v = r.firebio ? '<span class="fb">да'+(r.area?' · '+nf(r.area)+' м²':'')+'</span>' : "—";
+      else if(c[0]==="planinfo") v = (r.plan&&r.plan.length) ? "план + состав" : "только состав";
       else v = fmt(v);
       return '<td class="'+c[2]+'">'+v+'</td>';
     }).join("");
@@ -183,19 +210,50 @@ function render(){
   tb.querySelectorAll("tr").forEach(tr=>tr.onclick=()=>show(+tr.dataset.i));
 }
 
-function show(i){
-  sel=i; const r=filtered[i]; if(!r) return;
-  document.querySelectorAll("#tb tr").forEach(tr=>tr.classList.toggle("sel",+tr.dataset.i===i));
-  document.getElementById("vtitle").textContent = "Тип "+r.mark+" · "+(r.rooms.join(", ")||"—")+" · "+(r.area?nf(r.area)+" м²":"—");
-  const a=document.getElementById("vopen");
-  a.href=r.pdf; a.hidden=false;
-  document.getElementById("vframe").src=r.pdf+"#view=FitH";
+function setView(v){
+  const r=filtered[sel]; if(!r) return;
+  view = (v==="plan" && (r.plan||[]).length) ? "plan" : "compose";
+  planPage = 0;
+  paint();
+}
+
+function paint(){
+  const r=filtered[sel]; if(!r) return;
+  const pl=r.plan||[];
+  const hasPlan=pl.length>0;
+  if(view==="plan" && !hasPlan) view="compose";
+  document.getElementById("vCompose").classList.toggle("on",view==="compose");
+  document.getElementById("vPlan").classList.toggle("on",view==="plan");
+  document.getElementById("vCompose").disabled=false;
+  document.getElementById("vPlan").disabled=!hasPlan;
+  const src = (view==="plan") ? pl[Math.min(planPage, pl.length-1)] : r.pdf;
+  const a=document.getElementById("vopen"); a.href=src; a.hidden=false;
+  document.getElementById("vframe").src=src+"#view=FitH";
+  document.getElementById("vPlanPages").innerHTML = hasPlan
+    ? '<span class="vlabel">лист:</span>'+pl.map((u,i)=>'<button class="vbtn'+
+        (view==="plan"&&i===planPage?' on':'')+'" data-p="'+i+'">'+
+        ((r.plansheets&&r.plansheets[i])||i+1)+'</button>').join("")
+    : '<span class="vlabel">маркировочный план по этому типу в документе не выделен</span>';
+  document.querySelectorAll("#vPlanPages .vbtn").forEach(b=>b.onclick=()=>{
+    planPage=+b.dataset.p; view="plan"; paint();
+  });
   const bits=[];
   bits.push("<b>Состав слоёв:</b> "+(r.layers||"—"));
   if(r.planka) bits.push("<b>Плашки/щиты:</b> "+r.planka);
   if(r.note) bits.push("<b>Примечание:</b> "+r.note);
+  if(hasPlan) bits.push("<i>Кнопка «План полов» показывает маркировочный план: номера помещений и марки полов на плане.</i>");
   document.getElementById("vnote").innerHTML = bits.join("<br>");
 }
+
+function show(i){
+  sel=i; const r=filtered[i]; if(!r) return;
+  document.querySelectorAll("#tb tr").forEach(tr=>tr.classList.toggle("sel",+tr.dataset.i===i));
+  document.getElementById("vtitle").textContent = "Тип "+r.mark+" · "+(r.rooms.join(", ")||"—")+" · "+(r.area?nf(r.area)+" м²":"—");
+  view="compose"; planPage=0; paint();
+}
+
+document.getElementById("vCompose").onclick=()=>setView("compose");
+document.getElementById("vPlan").onclick=()=>setView("plan");
 
 document.getElementById("q").addEventListener("input",apply);
 document.getElementById("pat").addEventListener("change",apply);
