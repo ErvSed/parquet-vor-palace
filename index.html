@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ведомость объёмов работ по паркету — Дворец</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#d9dee5; --ink:#1d2733; --mut:#5b6b7c;
+    --acc:#1f4e79; --acc2:#2d6da3; --chip:#eef3f8; --warn:#fff4e5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:var(--acc);color:#fff;padding:16px 22px}
+  header h1{margin:0;font-size:19px;font-weight:600}
+  header p{margin:6px 0 0;color:#cfe0ef;font-size:13px}
+  .wrap{padding:16px 22px 40px}
+  .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .tab{padding:8px 14px;border:1px solid var(--line);background:var(--panel);border-radius:8px;cursor:pointer;font-size:13px}
+  .tab.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+  .stat b{display:block;font-size:17px}
+  .stat span{color:var(--mut);font-size:12px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  input[type=search],select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:13px;min-width:180px}
+  input[type=search]{flex:1 1 280px}
+  .hint{color:var(--mut);font-size:12px;margin:0 0 10px}
+  .layout{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:1100px){.layout{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr)}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .tblwrap{overflow:auto;max-height:74vh}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center;white-space:nowrap}
+  th{position:sticky;top:0;background:#eaf0f6;color:var(--acc);font-weight:600;z-index:2;cursor:pointer}
+  th:hover{background:#dde8f2}
+  td.l,th.l{text-align:left;white-space:normal;min-width:150px}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#f0f6fc}
+  tbody tr.sel{background:#dcebfa}
+  .num{font-variant-numeric:tabular-nums}
+  .viewer{position:sticky;top:12px}
+  .vhead{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .vhead b{font-size:14px}
+  .vhead a{color:var(--acc2);font-size:12px}
+  iframe{width:100%;height:66vh;border:0;background:#fff;display:block}
+  .empty{padding:34px 16px;text-align:center;color:var(--mut)}
+  .note{padding:10px 12px;font-size:12.5px;color:var(--mut);border-top:1px solid var(--line);background:#fafcfe}
+  .note b{color:var(--ink)}
+  .fb{background:var(--warn);border-radius:4px;padding:1px 5px}
+  footer{padding:14px 22px;color:var(--mut);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ведомость объёмов работ по паркету — «Дворец»</h1>
+  <p>Воссоздаваемый и восстанавливаемый паркет. Клик по строке открывает вырезку нужного участка листа (мини-PDF).</p>
+</header>
+<div class="wrap">
+  <div class="tabs" id="tabs"></div>
+  <div class="stats" id="stats"></div>
+  <div class="bar">
+    <input type="search" id="q" placeholder="Поиск: тип пола, помещение, рисунок, материал…">
+    <select id="pat"><option value="">Все рисунки</option></select>
+    <select id="sort">
+      <option value="mark">Сортировка: по типу пола</option>
+      <option value="area">по площади (убыв.)</option>
+      <option value="proj">по тому</option>
+      <option value="room">по помещению</option>
+    </select>
+  </div>
+  <p class="hint" id="hint"></p>
+  <div class="layout">
+    <div class="card">
+      <div class="tblwrap">
+        <table id="tbl">
+          <thead><tr id="th"></tr></thead>
+          <tbody id="tb"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card viewer" id="vcard">
+      <div class="vhead">
+        <b id="vtitle">Выберите строку в таблице</b>
+        <a id="vopen" href="#" target="_blank" rel="noopener" hidden>открыть в новой вкладке ↗</a>
+      </div>
+      <iframe id="vframe" title="Просмотр участка"></iframe>
+      <div class="note" id="vnote">Слева — ведомость, справа — участок листа с номерами помещений, маркой пола, составом слоёв и площадью.</div>
+    </div>
+  </div>
+  <footer id="foot"></footer>
+</div>
+<script>
+const COLS = {
+  full: [
+    ["mark","Тип пола",""],["proj","Том","l"],["rooms","Помещения","l"],
+    ["area","Площадь, м²","num"],["pattern","Рисунок","l"],
+    ["fanera","Фанера, мм",""],["dob","Добор В×Ш×шаг, мм",""],["lag","Лага В×Ш×шаг, мм",""],
+    ["kera","Керамзит, мм","num"],["peno","Пеностекло, мм","num"],
+    ["mv1","Минвата 1, мм","num"],["mv2","Минвата 2, мм","num"],["firebio","Огнебиозащита",""]
+  ],
+  fifth: [
+    ["mark","Тип пола",""],["pages","Стр. документа",""],["rooms","Помещения","l"],
+    ["area","Площадь, м²","num"],["pattern","Рисунок","l"],
+    ["fanera","Фанера, мм",""],["dob","Добор В×Ш×шаг, мм",""],["lag","Лага В×Ш×шаг, мм",""],
+    ["kera","Керамзит, мм","num"],["peno","Пеностекло, мм","num"],
+    ["mv1","Минвата 1, мм","num"],["mv2","Минвата 2, мм","num"],["firebio","Огнебиозащита",""]
+  ]
+};
+let DATA=null, mode="full", rows=[], filtered=[], sortKey="mark", sel=null;
+
+const fmt = v => (v===null||v===undefined||v==="") ? "—" : (Array.isArray(v) ? v.map(x=>x===null?"—":x).join(" × ") : v);
+
+function boot(d){
+  DATA = d;
+  document.getElementById("tabs").innerHTML =
+    '<div class="tab on" data-m="full">Все тома АР2 · '+d.full.types+' типов · '+nf(d.full.area)+' м²</div>'+
+    '<div class="tab" data-m="fifth">«Полы 5 этаж.pdf» · '+d.fifth.types+' типов · '+nf(d.fifth.area)+' м²</div>';
+  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>setMode(t.dataset.m));
+  document.getElementById("foot").textContent =
+    "Источники: тома АР2 (листы «Общая экспликация полов») и документ «Полы 5 этаж.pdf»; рисунок паркета — тома РР.АИ. "+
+    "Учтены только слои выше существующих конструкций, плит перекрытий и стяжек.";
+  setMode("full");
+}
+const nf = n => (n||0).toLocaleString("ru-RU",{maximumFractionDigits:2});
+
+function setMode(m){
+  mode=m;
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.m===m));
+  rows = DATA[m].rows.slice();
+  const pats=[...new Set(rows.map(r=>r.pattern).filter(Boolean))].sort();
+  document.getElementById("pat").innerHTML='<option value="">Все рисунки</option>'+pats.map(p=>'<option>'+p+'</option>').join("");
+  document.getElementById("stats").innerHTML =
+    '<div class="stat"><b>'+nf(DATA[m].area)+'</b><span>м² всего</span></div>'+
+    '<div class="stat"><b>'+DATA[m].types+'</b><span>типов пола</span></div>'+
+    '<div class="stat"><b>'+rows.filter(r=>r.firebio).length+'</b><span>с огнебиозащитой</span></div>';
+  drawHead(); apply();
+}
+
+function drawHead(){
+  document.getElementById("th").innerHTML = COLS[mode].map(c=>'<th class="'+c[2]+'">'+c[1]+'</th>').join("");
+}
+
+function apply(){
+  const q=document.getElementById("q").value.trim().toLowerCase();
+  const p=document.getElementById("pat").value;
+  sortKey=document.getElementById("sort").value;
+  filtered = rows.filter(r=>{
+    if(p && r.pattern!==p) return false;
+    if(!q) return true;
+    const hay=[r.mark,r.proj,r.rooms.join(" "),r.pattern,r.planka,r.layers,r.note].join(" ").toLowerCase();
+    return hay.includes(q);
+  });
+  filtered.sort((a,b)=>{
+    if(sortKey==="area") return (b.area||0)-(a.area||0);
+    if(sortKey==="proj") return String(a.proj||a.pages||"").localeCompare(String(b.proj||b.pages||"")) || cmpMark(a.mark,b.mark);
+    if(sortKey==="room") return (a.rooms[0]||"").localeCompare(b.rooms[0]||"") ;
+    return cmpMark(a.mark,b.mark);
+  });
+  const tot=filtered.reduce((s,r)=>s+(r.area||0),0);
+  document.getElementById("hint").textContent = "Показано "+filtered.length+" из "+rows.length+" типов · сумма "+nf(tot)+" м²";
+  render();
+}
+function cmpMark(a,b){
+  const pa=String(a).split(/[.\-]/).map(x=>parseInt(x)||0), pb=String(b).split(/[.\-]/).map(x=>parseInt(x)||0);
+  for(let i=0;i<Math.max(pa.length,pb.length);i++){ const d=(pa[i]||0)-(pb[i]||0); if(d) return d; }
+  return String(a).localeCompare(String(b));
+}
+
+function render(){
+  const tb=document.getElementById("tb");
+  if(!filtered.length){ tb.innerHTML='<tr><td class="empty" colspan="'+COLS[mode].length+'">Ничего не найдено</td></tr>'; return; }
+  tb.innerHTML = filtered.map((r,i)=>{
+    const tds = COLS[mode].map(c=>{
+      let v=r[c[0]];
+      if(c[0]==="pages") v=(r.pages||[r.page]).join(", ");
+      if(c[0]==="firebio") v = r.firebio ? '<span class="fb">да'+(r.area?' · '+nf(r.area)+' м²':'')+'</span>' : "—";
+      else v = fmt(v);
+      return '<td class="'+c[2]+'">'+v+'</td>';
+    }).join("");
+    return '<tr data-i="'+i+'"'+(sel===i?' class="sel"':'')+'>'+tds+'</tr>';
+  }).join("");
+  tb.querySelectorAll("tr").forEach(tr=>tr.onclick=()=>show(+tr.dataset.i));
+}
+
+function show(i){
+  sel=i; const r=filtered[i]; if(!r) return;
+  document.querySelectorAll("#tb tr").forEach(tr=>tr.classList.toggle("sel",+tr.dataset.i===i));
+  document.getElementById("vtitle").textContent = "Тип "+r.mark+" · "+(r.rooms.join(", ")||"—")+" · "+(r.area?nf(r.area)+" м²":"—");
+  const a=document.getElementById("vopen");
+  a.href=r.pdf; a.hidden=false;
+  document.getElementById("vframe").src=r.pdf+"#view=FitH";
+  const bits=[];
+  bits.push("<b>Состав слоёв:</b> "+(r.layers||"—"));
+  if(r.planka) bits.push("<b>Плашки/щиты:</b> "+r.planka);
+  if(r.note) bits.push("<b>Примечание:</b> "+r.note);
+  document.getElementById("vnote").innerHTML = bits.join("<br>");
+}
+
+document.getElementById("q").addEventListener("input",apply);
+document.getElementById("pat").addEventListener("change",apply);
+document.getElementById("sort").addEventListener("change",apply);
+
+fetch("data.json").then(r=>r.json()).then(boot).catch(e=>{
+  document.getElementById("hint").textContent="Не удалось загрузить data.json: "+e;
+});
+</script>
+</body>
+</html>
