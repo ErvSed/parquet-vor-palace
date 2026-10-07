@@ -54,6 +54,7 @@
   .note{padding:10px 12px;font-size:12.5px;color:var(--mut);border-top:1px solid var(--line);background:#fafcfe}
   .note b{color:var(--ink)}
   .fb{background:var(--warn);border-radius:4px;padding:1px 5px}
+  .ask{background:#fdeaea;color:#b3261e;border-radius:4px;padding:1px 6px;font-size:11.5px}
   footer{padding:14px 22px;color:var(--mut);font-size:12px}
 </style>
 </head>
@@ -155,7 +156,9 @@ function setMode(m){
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.m===m));
   rows = DATA[m].rows.slice();
   const pats=[...new Set(rows.map(r=>r.pattern).filter(Boolean))].sort();
-  document.getElementById("pat").innerHTML='<option value="">Все рисунки</option>'+pats.map(p=>'<option>'+p+'</option>').join("");
+  const nUn=rows.filter(r=>!r.pattern).length;
+  document.getElementById("pat").innerHTML='<option value="">Все рисунки</option>'+pats.map(p=>'<option>'+p+'</option>').join("")+
+    (nUn?'<option value="__none__">— не определён ('+nUn+')</option>':'');
   document.getElementById("stats").innerHTML =
     '<div class="stat"><b>'+nf(DATA[m].area)+'</b><span>м² всего</span></div>'+
     '<div class="stat"><b>'+DATA[m].types+'</b><span>типов пола</span></div>'+
@@ -172,7 +175,8 @@ function apply(){
   const p=document.getElementById("pat").value;
   sortKey=document.getElementById("sort").value;
   filtered = rows.filter(r=>{
-    if(p && r.pattern!==p) return false;
+    if(p==="__none__"){ if(r.pattern) return false; }
+    else if(p && r.pattern!==p) return false;
     if(!q) return true;
     const hay=[r.mark,r.proj,r.rooms.join(" "),r.pattern,r.planka,r.layers,r.note].join(" ").toLowerCase();
     return hay.includes(q);
@@ -201,6 +205,7 @@ function render(){
       let v=r[c[0]];
       if(c[0]==="pages") v=(r.pages||[r.page]).join(", ");
       if(c[0]==="firebio") v = r.firebio ? '<span class="fb">да'+(r.area?' · '+nf(r.area)+' м²':'')+'</span>' : "—";
+      else if(c[0]==="pattern" && !r.pattern) v = '<span class="ask">уточнить</span>';
       else if(c[0]==="planinfo") v = (r.plan&&r.plan.length) ? "план + состав" : "только состав";
       else v = fmt(v);
       return '<td class="'+c[2]+'">'+v+'</td>';
