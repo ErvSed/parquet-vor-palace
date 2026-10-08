@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сводная ведомость материалов — паркет «Дворец»</title>
+<style>
+  :root{--bg:#f5f6f8;--panel:#fff;--line:#d9dee5;--ink:#1d2733;--mut:#5b6b7c;--acc:#1f4e79;--acc2:#2d6da3;--grp:#eef3f8;--tot:#fff2cc}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:var(--acc);color:#fff;padding:16px 22px}
+  header h1{margin:0;font-size:19px;font-weight:600}
+  header p{margin:6px 0 0;color:#cfe0ef;font-size:13px}
+  header a{color:#fff}
+  .wrap{padding:16px 22px 40px}
+  .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .tab{padding:8px 14px;border:1px solid var(--line);background:var(--panel);border-radius:8px;cursor:pointer;font-size:13px}
+  .tab.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:150px}
+  .stat b{display:block;font-size:17px}
+  .stat span{color:var(--mut);font-size:12px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  input[type=search]{flex:1 1 280px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px}
+  .hint{color:var(--mut);font-size:12px;margin:0 0 10px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .tblwrap{overflow:auto;max-height:78vh}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center;white-space:nowrap}
+  th{position:sticky;top:0;background:#eaf0f6;color:var(--acc);font-weight:600;z-index:2}
+  td.l,th.l{text-align:left;white-space:normal}
+  tr.grp td{background:var(--grp);font-weight:600;text-align:left;color:var(--acc)}
+  tr.tot td{background:var(--tot);font-weight:600}
+  .num{font-variant-numeric:tabular-nums}
+  .muted{color:var(--mut);font-size:11.5px}
+  footer{padding:14px 22px;color:var(--mut);font-size:12px}
+  .note{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:14px;font-size:13px}
+  .note b{color:var(--acc)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Сводная ведомость материалов — паркетные полы «Дворца»</h1>
+  <p>Объёмы по площадям типов полов и средним толщинам слоёв · <a href="index.html">← к ведомости объёмов работ</a></p>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab on" data-m="summary">Сводная ведомость материалов</div>
+    <div class="tab" data-m="types">Расход по типам полов</div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="bar"><input type="search" id="q" placeholder="Поиск по материалу или типу пола…"></div>
+  <p class="hint" id="hint"></p>
+  <div class="card"><div class="tblwrap"><table id="tbl"><thead><tr id="th"></tr></thead><tbody id="tb"></tbody></table></div></div>
+  <div class="note" id="note"></div>
+  <footer>Источник площадей — сводная ведомость объёмов работ по паркету (тома АР2). Объёмы не экстраполировались:
+    в столбце «Охват» показано, по скольким типам и какой площади посчитан материал.</footer>
+</div>
+<script>
+let D=null, mode="summary", q="";
+
+const nf=(n,d=2)=>(n===null||n===undefined)?"—":Number(n).toLocaleString("ru-RU",{maximumFractionDigits:d,minimumFractionDigits:0});
+
+function boot(d){
+  D=d;
+  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{mode=t.dataset.m;
+    document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x.dataset.m===mode)); draw();});
+  const T=d.totals;
+  document.getElementById("stats").innerHTML =
+    '<div class="stat"><b>'+nf(T.parquet_m2)+'</b><span>м² паркета</span></div>'+
+    '<div class="stat"><b>'+nf(T.fanera_m2)+'</b><span>м² фанеры (сумма слоёв)</span></div>'+
+    '<div class="stat"><b>'+nf(T.dobor_m3,1)+'</b><span>м³ доска добора</span></div>'+
+    '<div class="stat"><b>'+nf(T.lagi_m3,1)+'</b><span>м³ лаги</span></div>'+
+    '<div class="stat"><b>'+nf(T.peno_m3,0)+'</b><span>м³ пеностекольный щебень</span></div>'+
+    '<div class="stat"><b>'+nf(T.kera_m3,0)+'</b><span>м³ керамзит</span></div>'+
+    '<div class="stat"><b>'+nf(T.firebio_m2,0)+'</b><span>м² огнебиозащита</span></div>';
+  document.getElementById("note").innerHTML =
+    '<b>Как считано.</b> Фанера: S = площадь типа пола, слоёв столько, сколько в томе. '+
+    'Доска разреженного настила: V = S · h · b/(b+шаг), погонаж L = S/(b+шаг). '+
+    'Лаги: L = S/шаг, V = L · b · h. Засыпки и минвата: V = S · t, где t — середина указанного в томе диапазона. '+
+    'Огнебиозащита: площадь деревянных элементов пола (кроме паркета), состав «Pirilax-Lux» или аналог, 400 г/м².';
+  draw();
+}
+
+function draw(){
+  const th=document.getElementById("th"), tb=document.getElementById("tb");
+  if(mode==="summary"){
+    th.innerHTML='<th class="l">Наименование материала</th><th>Ед. изм.</th><th>Количество</th>'+
+                 '<th>Охват данными</th><th class="l">Примечание</th>';
+    const rows=D.materials.filter(m=>!q || (m.name+" "+m.group+" "+m.note).toLowerCase().includes(q));
+    tb.innerHTML=rows.map(m=>{
+      const cls=m.name.startsWith("  в т.ч.")?"":"";
+      return '<tr class="'+cls+'"><td class="l">'+m.name+'</td><td>'+m.unit+'</td>'+
+        '<td class="num">'+nf(m.qty,3)+'</td>'+
+        '<td class="muted">'+(m.cov_types?m.cov_types+' типов / '+nf(m.cov_area,0)+' м²':'—')+'</td>'+
+        '<td class="l muted">'+(m.note||"")+'</td></tr>';
+    }).join("") || '<tr><td colspan="5">Ничего не найдено</td></tr>';
+  } else {
+    th.innerHTML='<th>Том</th><th>Тип пола</th><th>Площадь, м²</th><th class="l">Материал / элемент</th><th>Ед.</th><th>Количество</th>';
+    const rows=[];
+    for(const t of D.per_type){
+      const hit=!q || (t.mark+" "+t.proj+" "+t.items.map(i=>i[0]).join(" ")).toLowerCase().includes(q);
+      if(!hit) continue;
+      t.items.forEach((it,i)=>rows.push([t.proj,t.mark,t.area,it[0],it[1],it[2],i===0]));
+    }
+    tb.innerHTML=rows.map(r=>'<tr><td>'+(r[6]?r[0]:"")+'</td><td>'+(r[6]?r[1]:"")+'</td>'+
+      '<td class="num">'+(r[6]?nf(r[2]):"")+'</td><td class="l">'+r[3]+'</td><td>'+r[4]+'</td>'+
+      '<td class="num">'+nf(r[5],3)+'</td></tr>').join("") || '<tr><td colspan="6">Ничего не найдено</td></tr>';
+  }
+  const n=(mode==="summary")?D.materials.length:D.per_type.length;
+  document.getElementById("hint").textContent = (mode==="summary"
+    ? "Позиций материалов: "+n
+    : "Типов полов: "+n+" · строк расхода: "+document.getElementById("tb").children.length);
+}
+
+document.getElementById("q").addEventListener("input",e=>{q=e.target.value.trim().toLowerCase();draw();});
+fetch("materials.json").then(r=>r.json()).then(boot).catch(e=>{
+  document.getElementById("hint").textContent="Не удалось загрузить materials.json: "+e;});
+</script>
+</body>
+</html>
