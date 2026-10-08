@@ -38,6 +38,8 @@
   tbody tr{cursor:pointer}
   tbody tr:hover{background:#f0f6fc}
   tbody tr.sel{background:#dcebfa}
+tbody tr.tot{background:#fff2cc;font-weight:600}
+tbody tr.tot td{border-top:2px solid var(--acc);position:sticky;bottom:0}
   .num{font-variant-numeric:tabular-nums}
   .viewer{position:sticky;top:12px}
   .vhead{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
@@ -188,7 +190,9 @@ function apply(){
     return cmpMark(a.mark,b.mark);
   });
   const tot=filtered.reduce((s,r)=>s+(r.area||0),0);
-  document.getElementById("hint").textContent = "Показано "+filtered.length+" из "+rows.length+" типов · сумма "+nf(tot)+" м²";
+  const firebioSum=filtered.filter(r=>r.firebio).reduce((s,r)=>s+(r.area||0),0);
+  document.getElementById("hint").textContent = "Показано "+filtered.length+" из "+rows.length+" типов · сумма "+nf(tot)+" м²"
+    + (tot?(mode==="full"?" · фонд огнебиозащиты "+nf(firebioSum)+" м²":""):"");
   render();
 }
 function cmpMark(a,b){
@@ -211,8 +215,23 @@ function render(){
       return '<td class="'+c[2]+'">'+v+'</td>';
     }).join("");
     return '<tr data-i="'+i+'"'+(sel===i?' class="sel"':'')+'>'+tds+'</tr>';
+  }).join("") + totalRow();
+  tb.querySelectorAll("tr[data-i]").forEach(tr=>tr.onclick=()=>show(+tr.dataset.i));
+}
+
+function totalRow(){
+  const tot=filtered.reduce((s,r)=>s+(r.area||0),0);
+  const fbTot=filtered.filter(r=>r.firebio).reduce((s,r)=>s+(r.area||0),0);
+  const cols=COLS[mode];
+  const iArea=cols.findIndex(c=>c[0]==="area");
+  const iFb=cols.findIndex(c=>c[0]==="firebio");
+  const tds=cols.map((c,i)=>{
+    if(i===0) return '<td class="l">ИТОГО по '+filtered.length+' типам</td>';
+    if(i===iArea) return '<td class="num">'+nf(tot)+'</td>';
+    if(i===iFb) return '<td class="num">'+(fbTot?nf(fbTot)+" м²":"—")+'</td>';
+    return '<td></td>';
   }).join("");
-  tb.querySelectorAll("tr").forEach(tr=>tr.onclick=()=>show(+tr.dataset.i));
+  return '<tr class="tot">'+tds+'</tr>';
 }
 
 function setView(v){
