@@ -63,8 +63,13 @@ const nf=(n,d=2)=>(n===null||n===undefined)?"—":Number(n).toLocaleString("ru-R
 
 function boot(d){
   D=d;
-  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{mode=t.dataset.m;
-    document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x.dataset.m===mode)); draw();});
+  const qs=new URLSearchParams(location.search);
+  if(qs.get("view")==="types") mode="types";
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.classList.toggle("on",t.dataset.m===mode);
+    t.onclick=()=>{mode=t.dataset.m;
+      document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x.dataset.m===mode)); draw();};
+  });
   const T=d.totals;
   document.getElementById("stats").innerHTML =
     '<div class="stat"><b>'+nf(T.parquet_m2)+'</b><span>м² паркета</span></div>'+
@@ -88,13 +93,13 @@ function draw(){
     th.innerHTML='<th class="l">Наименование материала</th><th>Ед. изм.</th><th>Количество</th>'+
                  '<th>Охват данными</th><th class="l">Примечание</th>';
     const rows=D.materials.filter(m=>!q || (m.name+" "+m.group+" "+m.note).toLowerCase().includes(q));
-    tb.innerHTML=rows.map(m=>{
+    tb.innerHTML=(rows.map(m=>{
       const cls=m.name.startsWith("  в т.ч.")?"":"";
       return '<tr class="'+cls+'"><td class="l">'+m.name+'</td><td>'+m.unit+'</td>'+
         '<td class="num">'+nf(m.qty,3)+'</td>'+
         '<td class="muted">'+(m.cov_types?m.cov_types+' типов / '+nf(m.cov_area,0)+' м²':'—')+'</td>'+
         '<td class="l muted">'+(m.note||"")+'</td></tr>';
-    }).join("") || '<tr><td colspan="5">Ничего не найдено</td></tr>';
+    }).join("") || '<tr><td colspan="5">Ничего не найдено</td></tr>') + totalRow(rows);
   } else {
     th.innerHTML='<th>Том</th><th>Тип пола</th><th>Площадь, м²</th><th class="l">Материал / элемент</th><th>Ед.</th><th>Количество</th>';
     const rows=[];
@@ -103,14 +108,32 @@ function draw(){
       if(!hit) continue;
       t.items.forEach((it,i)=>rows.push([t.proj,t.mark,t.area,it[0],it[1],it[2],i===0]));
     }
-    tb.innerHTML=rows.map(r=>'<tr><td>'+(r[6]?r[0]:"")+'</td><td>'+(r[6]?r[1]:"")+'</td>'+
+    tb.innerHTML=(rows.map(r=>'<tr><td>'+(r[6]?r[0]:"")+'</td><td>'+(r[6]?r[1]:"")+'</td>'+
       '<td class="num">'+(r[6]?nf(r[2]):"")+'</td><td class="l">'+r[3]+'</td><td>'+r[4]+'</td>'+
-      '<td class="num">'+nf(r[5],3)+'</td></tr>').join("") || '<tr><td colspan="6">Ничего не найдено</td></tr>';
+      '<td class="num">'+nf(r[5],3)+'</td></tr>').join("") || '<tr><td colspan="6">Ничего не найдено</td></tr>')
+      + totalRow(rows);
   }
   const n=(mode==="summary")?D.materials.length:D.per_type.length;
   document.getElementById("hint").textContent = (mode==="summary"
     ? "Позиций материалов: "+n
     : "Типов полов: "+n+" · строк расхода: "+document.getElementById("tb").children.length);
+}
+
+function totalRow(rows){
+  if(mode==="summary"){
+    const t=D.totals;
+    return '<tr class="tot"><td class="l">ИТОГО по '+D.materials.length+' позициям</td><td></td>'+
+      '<td class="num">паркет '+nf(t.parquet_m2)+' м²</td>'+
+      '<td class="muted">фанера '+nf(t.fanera_m3,0)+' м³ · лаги '+nf(t.lagi_m3,1)+' м³ · добор '+nf(t.dobor_m3,1)+' м³</td>'+
+      '<td class="muted">засыпки '+nf(t.kera_m3+t.peno_m3,0)+' м³ · минвата '+nf(t.mv_m3,0)+' м³ · огнебиозащита '+nf(t.firebio_m2,0)+' м²</td></tr>';
+  }
+  const m3=rows.filter(r=>r[4]==="м³").reduce((s,r)=>s+r[5],0);
+  const mp=rows.filter(r=>r[4]==="м.п.").reduce((s,r)=>s+r[5],0);
+  const m2=rows.filter(r=>r[4]==="м²").reduce((s,r)=>s+r[5],0);
+  return '<tr class="tot"><td colspan="5" class="l">ИТОГО по видимому набору</td>'+
+    '<td class="num">'+nf(m3,1)+' м³</td></tr>'+
+    '<tr class="tot"><td colspan="5" class="l muted">в том числе: объём '+nf(m3,1)+' м³ · погонаж '+
+    nf(mp,0)+' м.п. · площадь '+nf(m2,0)+' м²</td><td></td></tr>';
 }
 
 document.getElementById("q").addEventListener("input",e=>{q=e.target.value.trim().toLowerCase();draw();});
