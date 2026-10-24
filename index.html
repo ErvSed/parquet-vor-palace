@@ -131,15 +131,15 @@ const fmt = v => (v===null||v===undefined||v==="") ? "—" : (Array.isArray(v) ?
 function boot(d){
   DATA = d;
   document.getElementById("tabs").innerHTML =
-    '<div class="tab on" data-m="full">Все тома АР2 · '+d.full.types+' типов · '+nf(d.full.area)+' м²</div>'+
-    '<div class="tab" data-m="fifth">«Полы 5 этаж.pdf» · '+d.fifth.types+' типов · '+nf(d.fifth.area)+' м²</div>';
+    '<div class="tab on" data-m="fifth">«Полы 5 этаж.pdf» · '+d.fifth.types+' типов · '+nf(d.fifth.area)+' м² — основной</div>'+
+    '<div class="tab" data-m="full">Все тома АР2 · '+d.full.types+' типов · '+nf(d.full.area)+' м²</div>';
   document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>setMode(t.dataset.m));
   document.getElementById("foot").textContent =
     "Источники: тома АР2 (листы «Общая экспликация полов» и маркировочные планы) и документ «Полы 5 этаж.pdf»; "+
     "рисунок паркета — тома РР.АИ. Учтены только слои выше существующих конструкций, плит перекрытий и стяжек. "+
-    "Прямая ссылка на тип: ?mode=full&t=5.11&view=plan";
+    "Прямая ссылка на тип: ?mode=fifth&t=5.11&view=plan";
   const qs=new URLSearchParams(location.search);
-  setMode(qs.get("mode")==="fifth" ? "fifth" : "full");
+  setMode(qs.get("mode")==="full" ? "full" : "fifth");
   const t=qs.get("t");
   if(t){
     document.getElementById("q").value=t;
