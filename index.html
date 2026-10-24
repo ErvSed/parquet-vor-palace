@@ -15,7 +15,9 @@
   header h1{margin:0;font-size:19px;font-weight:600}
   header p{margin:6px 0 0;color:#cfe0ef;font-size:13px}
   .wrap{padding:16px 22px 40px}
-  .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .tabs{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+  .tabgroup{display:flex;gap:8px;align-items:center}
+  .tabtag{font-weight:700;color:var(--acc);font-size:13px;letter-spacing:.03em}
   .tab{padding:8px 14px;border:1px solid var(--line);background:var(--panel);border-radius:8px;cursor:pointer;font-size:13px}
   .tab.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
   .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
@@ -131,8 +133,10 @@ const fmt = v => (v===null||v===undefined||v==="") ? "—" : (Array.isArray(v) ?
 function boot(d){
   DATA = d;
   document.getElementById("tabs").innerHTML =
-    '<div class="tab on" data-m="fifth">«Полы 5 этаж.pdf» · '+d.fifth.types+' типов · '+nf(d.fifth.area)+' м² — основной</div>'+
-    '<div class="tab" data-m="full">Все тома АР2 · '+d.full.types+' типов · '+nf(d.full.area)+' м²</div>';
+    '<div class="tabgroup"><span class="tabtag">РД</span>'+
+    '<div class="tab on" data-m="fifth">«Полы 5 этаж.pdf» · '+d.fifth.types+' типов · '+nf(d.fifth.area)+' м² — основной</div></div>'+
+    '<div class="tabgroup"><span class="tabtag">ПД</span>'+
+    '<div class="tab" data-m="full">Все тома АР2 · '+d.full.types+' типов · '+nf(d.full.area)+' м²</div></div>';
   document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>setMode(t.dataset.m));
   document.getElementById("foot").textContent =
     "Источники: тома АР2 (листы «Общая экспликация полов» и маркировочные планы) и документ «Полы 5 этаж.pdf»; "+
