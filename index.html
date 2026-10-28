@@ -55,6 +55,10 @@ tbody tr.tot td{border-top:2px solid var(--acc);position:sticky;bottom:0}
   .vbtn[disabled]{opacity:.45;cursor:default}
   .vlabel{color:var(--mut);font-size:12px;margin-right:4px}
   .empty{padding:34px 16px;text-align:center;color:var(--mut)}
+  .vwrap{position:relative}
+  .vmark{position:absolute;left:10px;top:10px;z-index:5;background:rgba(255,255,255,.94);border:1px solid #cfe0ef;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;color:#1f4e79;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .vtitlebox{display:flex;flex-direction:column;gap:2px}
+  .vmeta{color:#5b6b7c;font-size:11px;margin-top:2px}
   .note{padding:10px 12px;font-size:12.5px;color:var(--mut);border-top:1px solid var(--line);background:#fafcfe}
   .note b{color:var(--ink)}
   .fb{background:var(--warn);border-radius:4px;padding:1px 5px}
@@ -92,7 +96,7 @@ tbody tr.tot td{border-top:2px solid var(--acc);position:sticky;bottom:0}
     </div>
     <div class="card viewer" id="vcard">
       <div class="vhead">
-        <b id="vtitle">Выберите строку в таблице</b>
+        <div class="vtitlebox"><b id="vtitle">Выберите строку в таблице</b><div id="vmeta" class="vmeta"></div></div>
         <a id="vopen" href="#" target="_blank" rel="noopener" hidden>открыть в новой вкладке ↗</a>
         <a id="rdopen" href="#" target="_blank" rel="noopener" hidden>лист РД ↗</a>
       </div>
@@ -102,7 +106,7 @@ tbody tr.tot td{border-top:2px solid var(--acc);position:sticky;bottom:0}
         <button class="vbtn pl" id="vPlan" disabled>План полов</button>
         <span id="vPlanPages"></span>
       </div>
-      <iframe id="vframe" title="Просмотр участка"></iframe>
+      <div class="vwrap"><span id="vmark" class="vmark"></span><iframe id="vframe" title="Просмотр участка"></iframe></div>
       <div class="note" id="vnote">Слева — ведомость. Справа переключайте: «Состав слоёв» — таблица с пирогом и площадью, «План полов» — маркировочный план с номерами помещений и марками полов.</div>
     </div>
   </div>
@@ -137,7 +141,7 @@ function boot(d){
     '<div class="tabgroup"><span class="tabtag">РД</span>'+
     '<div class="tab on" data-m="fifth">«Полы 5 этаж.pdf» + РД · '+d.fifth.types+' типов · '+nf(d.fifth.area)+' м² — основной</div></div>'+
     '<div class="tabgroup"><span class="tabtag">ПД</span>'+
-    '<div class="tab" data-m="full">Все тома АР2 · '+d.full.types+' типов · '+nf(d.full.area)+' м²</div></div>';
+    '<div class="tab" data-m="full">Все паркетные полы (тома АР2) · '+d.full.types+' типов · '+nf(d.full.area)+' м²</div></div>';
   document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>setMode(t.dataset.m));
   document.getElementById("foot").textContent =
     "Источники: документ «Полы 5 этаж.pdf», новые листы РД 1.1 изм.2 (л. 28–29), РД 1.3 изм.1 (л. 22–23), РД 1.4 изм.1 (л. 13) и тома АР2; "+
@@ -260,6 +264,13 @@ function paint(){
   const rd=document.getElementById("rdopen");
   if(r.rdpdf){ rd.href=r.rdpdf; rd.hidden=false; rd.textContent=(r.rd||"РД")+" ↗"; } else { rd.hidden=true; }
   document.getElementById("vframe").src=src+"#view=FitH";
+  const _proj=r.tom||r.proj||"";
+  let _sheet="";
+  if(view==="plan" && r.plansheets && r.plansheets.length) _sheet=r.plansheets[Math.min(planPage,r.plansheets.length-1)];
+  else _sheet=r.page||(r.pages?r.pages.join(", "):"");
+  const _label=[_proj, _sheet?("лист "+_sheet):""].filter(Boolean).join(" · ");
+  document.getElementById("vmark").textContent=_label||(r.rd||"");
+  document.getElementById("vmeta").textContent=_label||(r.rd||"");
   document.getElementById("vPlanPages").innerHTML = hasPlan
     ? '<span class="vlabel">лист:</span>'+pl.map((u,i)=>'<button class="vbtn'+
         (view==="plan"&&i===planPage?' on':'')+'" data-p="'+i+'">'+
