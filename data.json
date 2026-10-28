@@ -5351,7 +5351,11 @@
    },
    {
     "mark": "5.24",
-    "rooms": [],
+    "rooms": [
+     "550",
+     "554",
+     "574"
+    ],
     "area": 19.96,
     "pattern": "",
     "patconf": false,
@@ -5389,7 +5393,9 @@
    },
    {
     "mark": "5.24.1",
-    "rooms": [],
+    "rooms": [
+     "553"
+    ],
     "area": 28.79,
     "pattern": "",
     "patconf": false,
