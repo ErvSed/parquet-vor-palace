@@ -1,1 +1,2 @@
-# parquet-vor-palace
+# parquet-vor-palace-v2-2
+Ведомость паркетных полов — вариант 2.2
