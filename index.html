@@ -610,10 +610,10 @@ async function renderPdf(url){
     const wrap=canvas.parentElement;
     const maxW=Math.max(320,wrap.clientWidth||900);
     const vp0=page.getViewport({scale:1});
-    // высокое разрешение: минимум 2400 px по ширине, но не более 12 МП
-    let targetW=Math.max(2400, maxW*2);
+    // высокое разрешение: минимум 4800 px по ширине (2×), но не более 32 МП
+    let targetW=Math.max(4800, maxW*2);
     let scale=targetW/vp0.width;
-    const maxPix=12e6;
+    const maxPix=32e6;
     if(vp0.width*scale*vp0.height*scale>maxPix) scale=Math.sqrt(maxPix/(vp0.width*vp0.height));
     const vp=page.getViewport({scale});
     if(token!==pdfRenderToken) return;
